@@ -1,0 +1,1 @@
+/home/regmed/dregmed/vis_to_nav/src/vis_nav/launch/testing_simulation.launch.py
