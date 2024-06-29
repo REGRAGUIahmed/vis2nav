@@ -24,7 +24,7 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
 
-from DRL import SAC
+from SAC.DRL import SAC
 
 if torch.cuda.is_available():
     device = torch.device("cuda")

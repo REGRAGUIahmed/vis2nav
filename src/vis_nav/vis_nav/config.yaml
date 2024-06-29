@@ -1,7 +1,8 @@
 ##### gtrl Config #####
 ---
 ##### DRL #####
-SEED : 1990  # Random seed number
+SEED : 1  # Random seed number
+DESC : 'with_crop_01' # describe what are you dowing
 MAX_STEPS : 400 # 300
 MAX_EPISODES : 450  # 500 Maximum number of steps to perform
 BATCH_SIZE : 32  # Size of the mini-batch
@@ -55,5 +56,5 @@ GoT-SAC:
     name : 'gtrl'
     actor_type : "GaussianTransformer"
     critic_type : "CNN" # CNN or Transformer
-    block : 2
+    block : 4
     head : 4

@@ -24,7 +24,7 @@ import torch
 from DRL import SAC
 import rclpy
 import threading
-from env_lab import GazeboEnv, Image_subscriber, Odom_subscriber, LaserScan_subscriber, Velodyne_subscriber, DepthImage_subscriber
+from env_lab import GazeboEnv, Odom_subscriber, LaserScan_subscriber, Velodyne_subscriber, DepthImage_subscriber
 
 
 
@@ -36,7 +36,7 @@ def main():
     with open(yaml_path) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     ##### Individual parameters for each model ######
-    model = 'SAC'
+    model = 'GoT-SAC'
     mode_param = config[model]
 
     model_name = mode_param['name']  # gtrl
@@ -112,7 +112,7 @@ def main():
                 critic_attention_fix, pre_buffer, seed, lr_c, lr_a, lr_alpha,
                 buffer_size, tau, policy_freq, gamma, alpha, block=transformer_block,
                 head=transformer_head, automatic_entropy_tuning=auto_tune)
-    name = 'drl00_reward187_seed1991'
+    name = 'gtrl44_reward250_seed1'
     env.get_logger().info(f'Let s go with {name}!!')
     ego.load (name,directory="./final_models")
 
@@ -149,9 +149,11 @@ def main():
                 if not target : 
                     s, goal = env.reset()
                 else:
+                    env.stop()
                     env.delete_entity('goal')
                     env.change_goal()
                     env.spawn_entity()
+                    env.stop()
                 #s, goal = env.reset()
                 for i in range(4):
                     s_list.append(s)

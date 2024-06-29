@@ -216,7 +216,7 @@ def plot_animation_figure2(env_name, lr_a, lr_c, ep_real, reward_target_list,
 
     plt.savefig('/home/regmed/dregmed/vis_to_nav/src/vis_nav/vis_nav/results/plot.png')
 def plot_animation_figure(env_name, lr_a, lr_c, ep_real, block, head,
-                          reward_list, reward_mean_list):
+                          reward_list, reward_mean_list,model_name,desc):
     
     '''fig = plt.figure()
     plt.clf()
@@ -274,7 +274,7 @@ def plot_animation_figure(env_name, lr_a, lr_c, ep_real, block, head,
 
     plt.tight_layout()
 
-    plt.savefig('/home/regmed/dregmed/vis_to_nav/src/vis_nav/vis_nav/results/plot_sac'+str(block)+str(head)+'_01_without_crop.png')
+    plt.savefig('/home/regmed/dregmed/vis_to_nav/src/vis_nav/vis_nav/results/plot_'+ model_name +str(block)+str(head)+'_'+desc+'.png')
     plt.close(fig)
 '''def key_callback(cmd):
     key_cmd.linear.x = cmd.linear.x
@@ -286,6 +286,7 @@ def plot_animation_figure(env_name, lr_a, lr_c, ep_real, block, head,
     
 def main():
     rclpy.init(args=None)
+    
     #device = torch.device("cuda", 0 if torch.cuda.is_available() else "cpu")  # cuda or cpu
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     #print(f'the device used is : {device}')
@@ -301,9 +302,9 @@ def main():
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     ##### Individual parameters for each model ######
-    model = 'GoT-SAC' #'GoT-SAC'
+    model = 'SAC' #'GoT-SAC'
     mode_param = config[model]
-
+    desc=config['DESC'] #describe what are you dowing
     model_name = mode_param['name']  # gtrl
     policy_type = mode_param['actor_type'] # GaussianTransformer
     critic_type = mode_param['critic_type'] # CNN
@@ -610,12 +611,12 @@ def main():
                     '\n')'''
 
                 if (ep_real % save_interval == 0):
-                    np.save(os.path.join('final_curves', 'reward_seed' + str(seed) + '_' + model_name+str(ep_real)),
+                    np.save(os.path.join('final_curves', 'reward_seed' + str(seed) + '_' + model_name+str(ep_real)+desc),
                             reward_mean_list, allow_pickle=True, fix_imports=True)
 
                 if ep_real % plot_interval == 0:
                     plot_animation_figure(env_name, lr_a, lr_c, ep_real, transformer_block, transformer_head,
-                          reward_list, reward_mean_list)
+                          reward_list, reward_mean_list,model_name,desc)
                     # plot_animation_figure(env_name,lr_a,lr_c,ep_real,reward_target_list,
                     #         reward_collision_list,pedal_list,steering_list,
                     #         reward_list,reward_mean_list,reward_heuristic_list,reward_action_list,reward_freeze_list)
@@ -672,7 +673,7 @@ def main():
             if avg_reward > save_threshold:
                 ego.save(model_name+str(transformer_block)+str(transformer_head), directory=folder_name, reward=int(np.floor(avg_reward)), seed=seed)
 
-            np.save(os.path.join('final_curves', 'reward_seed' + str(seed) + '_' + model_name), reward_mean_list, allow_pickle=True, fix_imports=True)
+            np.save(os.path.join('final_curves', 'reward_seed' + str(seed) + '_' + model_name+desc), reward_mean_list, allow_pickle=True, fix_imports=True)
     #except KeyboardInterrupt:
     #    pass
     rclpy.shutdown()

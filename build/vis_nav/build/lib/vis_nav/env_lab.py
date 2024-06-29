@@ -84,8 +84,8 @@ class GazeboEnv(Node):
         self.goalX = 1.0
         self.goalY = 0.0
         self.angle = 0.0
-        self.upper = 5.0 #10.0
-        self.lower = -5.0 #-10.0
+        self.upper = 7.0 #10.0
+        self.lower = -7.0 #-10.0
         # Changement de la position initial de robot mobile 
         self.collision = 0.0
         self.last_act = 0.0
@@ -143,6 +143,12 @@ class GazeboEnv(Node):
         return done, col, min_laser
 
     # Perform an action and read a new state
+    def stop(self):
+        vel_cmd = Twist()
+        vel_cmd.linear.x = 0.0
+        vel_cmd.angular.z = 0.0
+        self.vel_pub.publish(vel_cmd)
+        time.sleep(1.0)
     def step(self, act, timestep):
         self.spawn_entity()
         vel_cmd = Twist()
@@ -488,8 +494,8 @@ class DepthImage_subscriber(Node):
             cv_image_normalized = cv_image_normalized.astype(np.uint8)
             
             global last_image
-            # last_image = cv_image_normalized[80:400, 140:500]  # Crop to (440, 640)
-            last_image = cv_image_normalized
+            last_image = cv_image_normalized[80:400, 140:500]  # Crop to (440, 640)
+            # last_image = cv_image_normalized
             
         except Exception as e:
             self.get_logger().error('Could not convert depth image: %s' % str(e))
