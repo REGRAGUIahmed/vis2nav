@@ -198,7 +198,7 @@ class GoTPolicy(nn.Module):
             channels = 4
         )
         
-        self.fc_embed = nn.Linear(nb_pstate, 32)
+        self.fc_embed = nn.Linear(nb_pstate, 32) #3
 
         self.fc1 = nn.Linear(32,128)
         self.fc2 = nn.Linear(128,128)
@@ -223,7 +223,7 @@ class GoTPolicy(nn.Module):
         x1 = istate
 
         x2 = pstate
-        x2 = self.fc_embed(x2)
+        x2 = self.fc_embed(x2) #2
 
         latent_features = self.trans.forward(x1, x2)
         
@@ -236,7 +236,7 @@ class GoTPolicy(nn.Module):
         return mean, log_std
 
     def sample(self, inp):
-        mean, log_std = self.forward(inp)
+        mean, log_std = self.forward(inp) #1
         std = log_std.exp()
         normal = Normal(mean, std)
         x_t = normal.rsample()  # for reparameterization trick (mean + std * N(0,1))

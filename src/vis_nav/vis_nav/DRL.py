@@ -26,9 +26,6 @@ from got_sac_network import GoTPolicy as GaussianTransformerPolicy
 from got_sac_network import GoTQNetwork as TransformerQNetwork
 from got_sac_network import DeterministicGoTPolicy as DeterministicTransformerPolicy
 
-###### ViT-SAC ######
-# from SAC.vit_sac_network import GaussianTransformerPolicy, GaussianPolicy, TransformerQNetwork, QNetwork
-# from SAC.vit_sac_network import  DeterministicTransformerPolicy, DeterministicPolicy, set_seed
 
 class SAC(object):
     def __init__(self, action_dim, pstate_dim, policy_type, critic_type,

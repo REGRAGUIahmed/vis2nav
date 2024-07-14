@@ -24,8 +24,6 @@ setup(
     entry_points={
         'console_scripts': [
             'main.py = vis_nav.main:main',
-            'testing.py = vis_nav.testing:main',
-            'depth_image_subscriber.py = vis_nav.depth_image_subscriber:main',
         ],
     },
 )

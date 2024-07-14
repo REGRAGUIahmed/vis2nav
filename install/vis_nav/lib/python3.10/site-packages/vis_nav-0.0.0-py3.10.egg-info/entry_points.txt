@@ -1,5 +1,0 @@
-[console_scripts]
-depth_image_subscriber.py = vis_nav.depth_image_subscriber:main
-main.py = vis_nav.main:main
-testing.py = vis_nav.testing:main
-

@@ -2,9 +2,9 @@
 ---
 ##### DRL #####
 SEED : 1  # Random seed number
-DESC : 'with_crop_01' # describe what are you dowing
-MAX_STEPS : 400 # 300
-MAX_EPISODES : 450  # 500 Maximum number of steps to perform
+DESC : 'im_03' # describe what are you dowing
+MAX_STEPS : 2000 # 300
+MAX_EPISODES : 10  # 500 Maximum number of steps to perform
 BATCH_SIZE : 32  # Size of the mini-batch
 LR_A : 0.001 # Actor learning rate
 LR_C : 0.001 # Critic learning rate
@@ -14,23 +14,17 @@ ACTOR_FREQ : 1  # Frequency of Actor network updates
 BUFFER_SIZE : 30000  # 2e5 Maximum size of the buffer
 FRAME_STACK : 4 # Number of Channel
 PLOT_INTERVAL : 1
-EVAL_THRESHOLD : 100 # episode trigger for evaluation
-EVAL_EPOCH : 5  # number of episodes for evaluation
-SAVE_INTERVAL : 50
+EVAL_THRESHOLD : 80 # episode trigger for evaluation
 SAVE_THRESHOLD : 1 # episode trigger for saving the model
-REWARD_THRESHOLD : 100 # reward trigger for evaluation
+REWARD_THRESHOLD : 90 # reward trigger for evaluation
 SAVE : True # whether to save the model or not
 
 ###### Attention #####
-PRE_TRAIN : False # whether intialize with pre-trained parameter
-IF_TEST : False # whether intialize with pre-trained parameter
-ATTENTION_ONLY : False
 P_ATTENTION_FIX : False # whether fix the weights and bias of transformer
 C_ATTENTION_FIX : False # # whether fix the weights and bias of transformer
 
 ###### Human Intervention #####
 PRE_BUFFER : False # Human expert buffer
-HUMAN_INTERVENTION : False # whether need guidance from human driver
 
 ##### Entropy #####
 AUTO_TUNE : True # whether automatically tune the temperature parameter
@@ -39,18 +33,10 @@ LR_ALPHA : 0.0001
 
 ##### Environment #####
 ENV_NAME : "RRC"
-DRIVER : 'Oscar'
-ROBOT : 'scout'
 L_SCALE : 0.5
 A_SCALE : 2
 
 ##### Algo ######
-SAC:
-    name : 'drl'
-    actor_type : "GaussianConvNet"
-    critic_type : "CNN" # CNN or Transformer
-    block : 0
-    head : 0
 
 GoT-SAC:
     name : 'gtrl'

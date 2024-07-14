@@ -3,7 +3,7 @@
 
 import os
 from os import path
-from gazebo_msgs.srv import DeleteEntity, SpawnEntity
+from gazebo_msgs.srv import DeleteEntity, SpawnEntity, SetEntityState
 import time
 import math
 import math
@@ -15,17 +15,16 @@ from squaternion import Quaternion
 import rclpy
 import cv2
 from cv_bridge import CvBridge
-from gazebo_msgs.msg import EntityState
 from std_srvs.srv import Empty
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
-import point_cloud2 as pc2
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
-from sensor_msgs.msg import Image, LaserScan, PointCloud2
+from sensor_msgs.msg import Image, LaserScan
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
-from geometry_msgs.msg import Pose, PoseStamped
+from geometry_msgs.msg import Pose
+from ament_index_python.packages import get_package_share_directory
 
 last_odom = None
 last_image = None
@@ -33,31 +32,20 @@ last_dist = None
 scan_data =None
 goal_pose_rviz = None
 velodyne_data = np.ones(20) * 10 
+trajectorie=[]
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 # Check if the random goal position is located on an obstacle and do not accept it if it is
 def check_pos(x, y):
-    goalOK = False
-
-    if -6.7 < x < -6.5 and -3.4 < y < 3.6:
-        goalOK = True
-    
-    elif 3.5 < x < 5.2 and -3.4 < y < 3.6:
-        goalOK = True
-        
-    elif -6.4 < x < 3.5 and -3.4 < y <-2.8:
-        goalOK = True
-    
-    elif -6.4 < x < 3.5 and 3.1 < y < 3.6:
-        goalOK = True
-    
-    elif -1.8 < x < -1.4 and -3.4 < y < 3.6:
-        goalOK = True
-
-    return goalOK
-
-
+    if (3.7 < x < 5.5 and -3.5 < y < 4) or \
+       (-4.5 < x < 4 and -3.5 < y < -2) or \
+       (-3.5 < x < 3.3 and -1.5 < y < 2) or \
+       (-5 < x < -4 and -3.5 < y < 0.3) or \
+       (-5 < x < -4 and 2 < y < 4) or \
+       (0 < x < 2.3 and 2.5 < y < 4) or x > 5 or x < -5 or y > 3.7 or y < -3:
+        return False
+    else:
+        return True
 # Function to put the laser data in bins
 def binning(lower_bound, data, quantity):
     width = round(len(data) / quantity)
@@ -75,22 +63,27 @@ class GazeboEnv(Node):
     def __init__(self):
         super().__init__('env') 
         self.entity_name = 'goal'
-        self.entity_dir_path='/home/regmed/dregmed/vis_to_nav/src/vis_nav/description/sdf'
-        self.entity_path = os.path.join(self.entity_dir_path, 'obstacle.sdf')
+        self.entity_dir_path=os.path.join(get_package_share_directory('vis_nav'), 'description/sdf')
+        self.entity_path = os.path.join(self.entity_dir_path, 'goal.sdf')
         self.entity = open(self.entity_path, 'r').read()
         self.odomX = 0.0
         self.odomY = 0.0
-
-        self.goalX = 1.0
-        self.goalY = 0.0
+        self.entityX = 0.0
+        self.entityY = 2.5
+        self.quaterX = 0.0
+        self.quaterY = 0.0
+        self.quaterZ = 0.0
+        self.quaterW = 1.0
+        self.goalX = 0.0
+        self.goalY = 8.5
         self.angle = 0.0
-        self.upper = 7.0 #10.0
-        self.lower = -7.0 #-10.0
-        # Changement de la position initial de robot mobile 
+        self.upper = 5.0 #10.0
+        self.lower = -5.0 #-10.0
         self.collision = 0.0
         self.last_act = 0.0
         self.spawn_entity_client = self.create_client(SpawnEntity, 'spawn_entity')
         self.delete_entity_client = self.create_client(DeleteEntity, 'delete_entity')
+        self.set_entity_client = self.create_client(SetEntityState, 'gazebo/set_entity_state')
         self.x_pos_list = deque(maxlen=5)
         self.y_pos_list = deque(maxlen=5)
         self.distOld = math.sqrt(math.pow(self.odomX - self.goalX, 2) + math.pow(self.odomY - self.goalY, 2))
@@ -101,7 +94,8 @@ class GazeboEnv(Node):
 
         # Set up the ROS publishers and subscribers
         self.vel_pub = self.create_publisher(Twist, "/cmd_vel", 1)
-        self.set_state = self.create_publisher(EntityState, "gazebo/set_entity_state", 10)
+       
+        #self.set_state = self.create_publisher(SetEntityState, "gazebo/set_entity_state", 10)
         self.unpause = self.create_client(Empty, "/unpause_physics")
         self.pause = self.create_client(Empty, "/pause_physics")
         topic = 'goal_mark_array'
@@ -123,6 +117,24 @@ class GazeboEnv(Node):
         while not self.spawn_entity_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('service not available, waiting again...')
         self.spawn_entity_client.call_async(req_s)
+    def set_entity(self):
+        request = SetEntityState.Request()
+        request.state.name = 'scout'
+        request.state.pose.position.x = self.entityX
+        request.state.pose.position.y = self.entityY
+        request.state.pose.position.z = 0.0  # Assuming ground level
+        
+        request.state.pose.orientation.x = self.quaterX
+        request.state.pose.orientation.y = self.quaterY
+        request.state.pose.orientation.z = self.quaterZ
+        request.state.pose.orientation.w = self.quaterW       
+        
+        future = self.set_entity_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+
+        if future.result() is None:
+            self.get_logger().error('Failed to change entity position.')
+   
     def delete_entity(self, entity_name):
         req = DeleteEntity.Request()
         req.name = entity_name
@@ -130,7 +142,7 @@ class GazeboEnv(Node):
             self.get_logger().info('service not available, waiting again...')
         self.delete_entity_client.call_async(req)
     def calculate_observation(self, data):
-        min_range = 0.5
+        min_range = 0.30
         min_laser = 2.0
         done = False
         col = False
@@ -141,14 +153,7 @@ class GazeboEnv(Node):
                 done = True
                 col = True
         return done, col, min_laser
-
-    # Perform an action and read a new state
-    def stop(self):
-        vel_cmd = Twist()
-        vel_cmd.linear.x = 0.0
-        vel_cmd.angular.z = 0.0
-        self.vel_pub.publish(vel_cmd)
-        time.sleep(1.0)
+    
     def step(self, act, timestep):
         self.spawn_entity()
         vel_cmd = Twist()
@@ -174,14 +179,16 @@ class GazeboEnv(Node):
             self.pause.call_async(Empty.Request())
         except (rclpy.ServiceException) as e: # type: ignore
             print("/gazebo/pause_physics service call failed")
-
         data = scan_data
         dataOdom = last_odom
         data_obs = last_image
+        laser_state = np.array(data.ranges[:])
         v_state = []
         v_state[:] = velodyne_data[:]
+        laser_state = [v_state]
+
         done, col, min_laser = self.calculate_observation(data)
-        # Calculate robot heading from odometry data
+
         self.odomX = dataOdom.pose.pose.position.x
         self.odomY = dataOdom.pose.pose.position.y
         self.x_pos_list.append(round(self.odomX,2))
@@ -195,10 +202,8 @@ class GazeboEnv(Node):
         euler = quaternion.to_euler(degrees=False)
         angle = round(euler[2], 4)
 
-        # Calculate distance to the goal from the robot
         Dist = math.sqrt(math.pow(self.odomX - self.goalX, 2) + math.pow(self.odomY - self.goalY, 2))
 
-        # Calculate the angle distance between the robots heading and heading toward the goal
         skewX = self.goalX - self.odomX
         skewY = self.goalY - self.odomY
         dot = skewX * 1 + skewY * 0
@@ -242,6 +247,7 @@ class GazeboEnv(Node):
 
         self.publisher.publish(markerArray)
 
+
         '''Bunch of different ways to generate the reward'''
         
         r_heuristic = (self.distOld - Dist) * 20 #* math.cos(act[0]*act[1]/4)
@@ -255,11 +261,12 @@ class GazeboEnv(Node):
         r_freeze = 0.0
 
         # Detect if the goal has been reached and give a large positive reward
+        #if Dist < 0.5:
         if Dist < 0.5:
             target = True
             done = True
             self.distOld = math.sqrt(math.pow(self.odomX - self.goalX, 2) + math.pow(self.odomY - self.goalY, 2))
-            r_target = 100
+            r_target = 120
 
         # Detect if ta collision has happened and give a large negative reward
         if col:
@@ -285,21 +292,37 @@ class GazeboEnv(Node):
         except StopIteration:
             return True
         return all((abs(first-x)<0.1) for x in buffer)
-
+    
     def reset(self):
-        # Resets the state of the environment and returns an initial observation.
-        while not self.reset_proxy.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('reset : service not available, waiting again...')
-
-        try:
-            self.reset_proxy.call_async(Empty.Request())
-        except rclpy.ServiceException as e: # type: ignore
-            print("/gazebo/reset_simulation service call failed")
+            
         self.delete_entity(self.entity_name)
+        angle = np.random.uniform(-np.pi, np.pi)
+        quaternion = Quaternion.from_euler(0., 0., angle)
+        self.quaterX = quaternion.x
+        self.quaterY = quaternion.y
+        self.quaterZ = quaternion.z
+        self.quaterW = quaternion.w
+        x = 0
+        y = 0
+        chk = False
+        while not chk:
+            x = np.random.uniform(-4.5, 5.0)
+            y = np.random.uniform(-3.0, 3.5)
+            chk = check_pos(x, y)
+        
+        self.entityX = x
+        self.entityY = y
+        self.quaterX = quaternion.x
+        self.quaterY = quaternion.y
+        self.quaterZ = quaternion.z
+        self.quaterW = quaternion.w
+        
+        self.set_entity()
         self.change_goal()
         self.spawn_entity()
         self.distOld = math.sqrt(math.pow(self.odomX - self.goalX, 2) + math.pow(self.odomY - self.goalY, 2))
         data = scan_data
+        data_obs = None
         data_obs_fish = last_image
 
         while not self.unpause.wait_for_service(timeout_sec=1.0):
@@ -316,6 +339,7 @@ class GazeboEnv(Node):
             self.pause.call_async(Empty.Request())
         except:
             print("/gazebo/pause_physics service call failed")
+            
         laser_state = np.array(data.ranges[:])
         laser_state[laser_state == inf] = 10
         laser_state = binning(0, laser_state, 20)
@@ -323,9 +347,7 @@ class GazeboEnv(Node):
         ##### FishEye Image ####
         camera_image = data_obs_fish
         image = np.expand_dims(cv2.resize(camera_image, (160, 128)), axis=2)
-        
         state = image/255
-
         Dist = math.sqrt(math.pow(self.odomX - self.goalX, 2) + math.pow(self.odomY - self.goalY, 2))
 
         skewX = self.goalX - self.odomX
@@ -350,12 +372,12 @@ class GazeboEnv(Node):
             beta2 = -np.pi - beta2
             beta2 = np.pi - beta2
 
-        Dist  = min(Dist/15, 1.0) # max 15m away from current position
+        Dist  = min(Dist/15, 1.0) 
         beta2 = beta2 / np.pi
         toGoal = np.array([Dist, beta2, 0.0, 0.0])
+        time.sleep(0.2) 
         return state, toGoal
 
-    # Place a new goal and check if its lov\cation is not on one of the obstacles
     def change_goal(self):
         if self.upper < 10:
             self.upper += 0.008
@@ -363,16 +385,12 @@ class GazeboEnv(Node):
             self.lower -= 0.008
 
         gOK = False
-        #and self.goalX==self.modelX and self.goalY==self.goalY
-        while not gOK :
+        while not gOK:
             self.goalX = self.odomX + random.uniform(self.upper, self.lower)
             self.goalY = self.odomY + random.uniform(self.upper, self.lower)
 
             euclidean_dist = math.sqrt((self.goalX - self.odomX)**2 + (self.goalY - self.odomY)**2)
-            if self.upper > 4 and euclidean_dist < 3:
-                gOK = False
-                continue
-            elif self.upper > 8 and euclidean_dist < 6:
+            if euclidean_dist < 1.5:
                 gOK = False
                 continue
 
@@ -384,8 +402,8 @@ class GazeboEnv(Node):
         y = 0.0
         chk = False
         while not chk :
-            x = np.random.uniform(-7.0, 7.0)
-            y = np.random.uniform(-4.0, 4.0)
+            x = np.random.uniform(-5.0, 5.0)
+            y = np.random.uniform(-3.0, 4.0)
             chk = check_pos(x, y)
         self.modelX = x
         self.modelY = y
@@ -412,41 +430,6 @@ class Odom_subscriber(Node):
         global last_odom
         last_odom = od_data
 
-class Velodyne_subscriber(Node):
-
-    def __init__(self):
-        super().__init__('velodyne_subscriber')
-        self.subscription = self.create_subscription(
-            PointCloud2,
-            "/velodyne_points",
-            self.velodyne_callback,
-            10)
-        self.subscription
-
-        self.gaps = [[-np.pi / 2 - 0.03, -np.pi / 2 + np.pi / 20]]
-        for m in range(20 - 1):
-            self.gaps.append(
-                [self.gaps[m][1], self.gaps[m][1] + np.pi / 20]
-            )
-        self.gaps[-1][-1] += 0.03
-
-    def velodyne_callback(self, v):
-        global velodyne_data
-        data = list(pc2.read_points(v, skip_nans=False, field_names=("x", "y", "z")))
-        velodyne_data = np.ones(20) * 10
-        for i in range(len(data)):
-            if data[i][2] > -0.2:
-                dot = data[i][0] * 1 + data[i][1] * 0
-                mag1 = math.sqrt(math.pow(data[i][0], 2) + math.pow(data[i][1], 2))
-                mag2 = math.sqrt(math.pow(1, 2) + math.pow(0, 2))
-                beta = math.acos(dot / (mag1 * mag2)) * np.sign(data[i][1])
-                dist = math.sqrt(data[i][0] ** 2 + data[i][1] ** 2 + data[i][2] ** 2)
-
-                for j in range(len(self.gaps)):
-                    if self.gaps[j][0] <= beta < self.gaps[j][1]:
-                        velodyne_data[j] = min(velodyne_data[j], dist)
-                        break
-
 class LaserScan_subscriber(Node):
 
     def __init__(self):
@@ -462,29 +445,15 @@ class LaserScan_subscriber(Node):
         global scan_data
         scan_data = od_data
          
-class GoalPose_subscriber(Node):
-
-    def __init__(self):
-        super().__init__('GoalPose_subscriber')
-        self.subscription = self.create_subscription(
-            PoseStamped,
-            '/goal_pose',
-            self.goal_pose_callback,
-            1)
-        self.subscription
-
-    def goal_pose_callback(self, data):
-        global goal_pose_rviz
-        goal_pose_rviz = data
 class DepthImage_subscriber(Node):
     def __init__(self):
         super().__init__('depth_image_subscriber')
         self.subscription = self.create_subscription(
             Image,
-            '/camera/depth/image_raw',  # Replace with your depth image topic
+            '/camera/depth/image_raw', 
             self.listener_callback,
             10)
-        self.subscription  # prevent unused variable warning
+        self.subscription  
         self.bridge = CvBridge()
 
     def listener_callback(self, msg):
@@ -494,11 +463,41 @@ class DepthImage_subscriber(Node):
             cv_image_normalized = cv_image_normalized.astype(np.uint8)
             
             global last_image
-            last_image = cv_image_normalized[80:400, 140:500]  # Crop to (440, 640)
-            # last_image = cv_image_normalized
+            last_image = cv_image_normalized[80:400, 140:500]  #
             
         except Exception as e:
             self.get_logger().error('Could not convert depth image: %s' % str(e))
+class Image_fish_subscriber(Node):
+    def __init__(self):
+        super().__init__('image_fish_subscriber')
+        self.subscription = self.create_subscription(
+            Image,
+            '/camera/image_raw',  
+            self.listener_callback,
+            10)
+        self.subscription 
+        self.bridge = CvBridge()
 
-#/camera2/image_raw
+    def listener_callback(self, rgb_data):
+        try:
+            image = self.bridge.imgmsg_to_cv2(rgb_data, "mono8")
+            last_image_fish = image[80:400, 118:523]
+            global last_image
+            last_image = last_image_fish
+            
+        except Exception as e:
+            self.get_logger().error('Could not convert fish image: %s' % str(e))
 
+class Image_subscriber(Node):
+    def __init__(self):
+        super().__init__('image_subscriber') 
+        self.subscription = self.create_subscription(
+            Image,
+            '/camera/image_raw',
+            self.image_callback, qos_profile_sensor_data)
+        self.subscription
+        self.bridge = CvBridge()
+    def image_callback(self, im_data):
+        global last_image
+        cv_image = self.bridge.imgmsg_to_cv2(im_data, "mono8")
+        last_image = cv_image
